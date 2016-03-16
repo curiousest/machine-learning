@@ -1,7 +1,8 @@
 # machine-learning
 Content for Udacity's Machine Learning curriculum
 
-Project 1 (Grid Search + cross-validation): https://github.com/curiousest/machine-learning/blob/master/projects/boston_housing/boston_housing.ipynb
+Project 1 (Grid Search + cross-validation):
+https://github.com/curiousest/machine-learning/blob/master/projects/boston_housing/boston_housing.ipynb
 
 Project 2 (Supervised Learning):
 https://github.com/curiousest/machine-learning/blob/master/projects/student_intervention/student_intervention.ipynb
