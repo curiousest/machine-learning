@@ -10,8 +10,11 @@ Project 2 (Supervised Learning):
 
 https://github.com/curiousest/machine-learning/blob/master/projects/student_intervention/student_intervention.ipynb
 
+Project 3 (Unsupervised Learning):
 
-Project 3 (Reinforcement Learning):
+https://github.com/curiousest/machine-learning/blob/master/projects/creating_customer_segments/creating_customer_segments.ipynb
+
+Project 4 (Reinforcement Learning):
 
 https://github.com/curiousest/machine-learning/tree/master/projects/smartcab
 
