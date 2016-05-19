@@ -12,7 +12,7 @@ https://github.com/curiousest/machine-learning/blob/master/projects/student_inte
 
 Project 3 (Unsupervised Learning):
 
-https://github.com/curiousest/machine-learning/blob/master/projects/creating_customer_segments/creating_customer_segments.ipynb
+https://github.com/curiousest/machine-learning/blob/master/projects/creating_customer_segments/customer_segments.ipynb
 
 Project 4 (Reinforcement Learning):
 
