@@ -6,13 +6,6 @@ from simulator import Simulator
 class LearningAgent(Agent):
     """An agent that learns to drive in the smartcab world."""
 
-    RED_CAN_RIGHT = "red can right"
-    RED_CANT_RIGHT = "red can't right"
-    RED = [RED_CAN_RIGHT, RED_CANT_RIGHT]
-    GREEN_CANT_LEFT = "green can't left"
-    GREEN_CAN_LEFT = "green can left"
-    GREEN = [GREEN_CAN_LEFT, GREEN_CANT_LEFT]
-
     def __init__(self, env):
         super(LearningAgent, self).__init__(env)  # sets self.env = env, state = None, next_waypoint = None, and a default color
         self.color = 'red'  # override color
@@ -29,16 +22,32 @@ class LearningAgent(Agent):
         inputs = self.env.sense(self)
         deadline = self.env.get_deadline(self)
 
-        if inputs['light'] == "red":
-            if inputs['right'] == 'straight':
-                self.state = self.RED_CANT_RIGHT
-            else:
-                self.state = self.RED_CAN_RIGHT
+        oncoming_blocking_left = inputs['oncoming'] in ['right', 'forward']
+        if oncoming_blocking_left:
+            oncoming = "oncoming blocking left"
+        elif inputs['oncoming']:
+            oncoming = "True"
         else:
-            if inputs['oncoming'] in ['right', 'straight']:
-                self.state = self.GREEN_CANT_LEFT
-            else:
-                self.state = self.GREEN_CAN_LEFT
+            oncoming = "False"
+
+        left = str(inputs['left'] is None)
+        right = str(inputs['right'] is None)
+
+        # 3 x 3 x 2 x 2 x 2 possibilities = 64 possible states
+        states = [self.next_waypoint, oncoming, left, right, inputs['light']]
+
+        self.state = ','.join(states)
+
+        # if inputs['light'] == "red":
+        #     if inputs['right'] == 'straight':
+        #         self.state = self.RED_CANT_RIGHT
+        #     else:
+        #         self.state = self.RED_CAN_RIGHT
+        # else:
+        #     if inputs['oncoming'] in ['right', 'straight']:
+        #         self.state = self.GREEN_CANT_LEFT
+        #     else:
+        #         self.state = self.GREEN_CAN_LEFT
 
         # TODO: Select action according to your policy
         possible_actions = (None, 'forward', 'left', 'right')
