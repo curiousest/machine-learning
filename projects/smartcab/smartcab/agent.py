@@ -6,6 +6,13 @@ from simulator import Simulator
 class LearningAgent(Agent):
     """An agent that learns to drive in the smartcab world."""
 
+    RED_CAN_RIGHT = "red can right"
+    RED_CANT_RIGHT = "red can't right"
+    RED = [RED_CAN_RIGHT, RED_CANT_RIGHT]
+    GREEN_CANT_LEFT = "green can't left"
+    GREEN_CAN_LEFT = "green can left"
+    GREEN = [GREEN_CAN_LEFT, GREEN_CANT_LEFT]
+
     def __init__(self, env):
         super(LearningAgent, self).__init__(env)  # sets self.env = env, state = None, next_waypoint = None, and a default color
         self.color = 'red'  # override color
@@ -22,14 +29,24 @@ class LearningAgent(Agent):
         inputs = self.env.sense(self)
         deadline = self.env.get_deadline(self)
 
-        # TODO: Update state
-        
+        if inputs['light'] == "red":
+            if inputs['right'] == 'straight':
+                self.state = self.RED_CANT_RIGHT
+            else:
+                self.state = self.RED_CAN_RIGHT
+        else:
+            if inputs['oncoming'] in ['right', 'straight']:
+                self.state = self.GREEN_CANT_LEFT
+            else:
+                self.state = self.GREEN_CAN_LEFT
+
         # TODO: Select action according to your policy
         possible_actions = (None, 'forward', 'left', 'right')
-        action = possible_actions[random.randint(0,3)]
+        action = possible_actions[random.randint(0, 3)]
 
         # Execute action and get reward
         reward = self.env.act(self, action)
+
 
         # TODO: Learn policy based on state, action, reward
 
