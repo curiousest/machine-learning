@@ -1,30 +1,80 @@
+import itertools
 import random
 from environment import Agent, Environment
 from planner import RoutePlanner
 from simulator import Simulator
 
+ACTIONS = ['left', 'right', 'forward', None]
+
 class LearningAgent(Agent):
     """An agent that learns to drive in the smartcab world."""
+
+    next_waypoint_states = ['right', 'forward', 'left']
+
+    # every possible state (list of tuples)
+    states = [','.join(i) for i in itertools.product(
+        next_waypoint_states,
+        ['oncomingblockingleft', 'True', 'False'],
+        ['True', 'False'],
+        ['True', 'False'],
+        ['green', 'red']
+    )]
+
+    Q = {i: 12 for i in itertools.product(ACTIONS, states)}
+    LEARNING_RATE = 0.2
+    DISCOUNT_FACTOR = 0.5
 
     def __init__(self, env):
         super(LearningAgent, self).__init__(env)  # sets self.env = env, state = None, next_waypoint = None, and a default color
         self.color = 'red'  # override color
         self.planner = RoutePlanner(self.env, self)  # simple route planner to get next_waypoint
-        # TODO: Initialize any additional variables here
 
     def reset(self, destination=None):
         self.planner.route_to(destination)
-        # TODO: Prepare for a new trip; reset any variables here, if required
+        self.state = self.get_current_state()
+        self.estimated_best_next_value, self.next_action = self.best_next_action(self.state)
 
-    def update(self, t):
+    def best_next_action(self, state):
+        '''
+        Returns the next action and expected value of that action for the
+        action with the largest expected reward.
+
+        To estimate future states, we have to consider that taking some action
+        will put us in one of 4 random states. Average the 3 random states
+        for each action and pick the max average.
+
+        :return: (estimated_value, action) ex: (2.5, 'left')
+        '''
+
+        for remove_waypoint in self.next_waypoint_states:
+            state = state.replace(remove_waypoint, '')
+
+        possible_states = [i + state for i in self.next_waypoint_states]
+        maximums = max(
+            [(sum(
+                [self.Q[(a, s)] for s in possible_states]
+            ) / len(self.next_waypoint_states), a)
+             for a in ACTIONS],
+            # each item in the comprehension is a tuple - value, action
+            key=lambda a: a[0]
+        )
+
+        if type(maximums) is list:
+            # The max function can return a list of maximum values if they share
+            # the same max value. In this case, return the first one.
+            return maximums[0]
+        else:
+            return maximums
+
+    def get_current_state(self):
         # Gather inputs
-        self.next_waypoint = self.planner.next_waypoint()  # from route planner, also displayed by simulator
+        next_waypoint = self.planner.next_waypoint()  # from route planner, also displayed by simulator
         inputs = self.env.sense(self)
         deadline = self.env.get_deadline(self)
 
         oncoming_blocking_left = inputs['oncoming'] in ['right', 'forward']
         if oncoming_blocking_left:
-            oncoming = "oncoming blocking left"
+            oncoming = "oncomingblockingleft"
         elif inputs['oncoming']:
             oncoming = "True"
         else:
@@ -34,32 +84,32 @@ class LearningAgent(Agent):
         right = str(inputs['right'] is None)
 
         # 3 x 3 x 2 x 2 x 2 possibilities = 64 possible states
-        states = [self.next_waypoint, oncoming, left, right, inputs['light']]
+        state_inputs = [next_waypoint, oncoming, left, right, inputs['light']]
+        return ','.join(state_inputs)
 
-        self.state = ','.join(states)
+    def update(self, t):
 
-        # if inputs['light'] == "red":
-        #     if inputs['right'] == 'straight':
-        #         self.state = self.RED_CANT_RIGHT
-        #     else:
-        #         self.state = self.RED_CAN_RIGHT
-        # else:
-        #     if inputs['oncoming'] in ['right', 'straight']:
-        #         self.state = self.GREEN_CANT_LEFT
-        #     else:
-        #         self.state = self.GREEN_CAN_LEFT
-
-        # TODO: Select action according to your policy
-        possible_actions = (None, 'forward', 'left', 'right')
-        action = possible_actions[random.randint(0, 3)]
+        # select best next action, done during learn step
+        action = self.next_action
 
         # Execute action and get reward
         reward = self.env.act(self, action)
 
+        prev_state = self.state
+        self.state = self.get_current_state()
 
-        # TODO: Learn policy based on state, action, reward
+        self.learn(prev_state, self.state, action, reward)
 
-        print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}".format(deadline, inputs, action, reward)  # [debug]
+        # Debug prints
+        inputs = self.env.sense(self)
+        deadline = self.env.get_deadline(self)
+        print "LearningAgent.update(): deadline = {}, state = {}, action = {}, reward = {}, est = {}".format(deadline, prev_state, action, reward, self.estimated_best_next_value)  # [debug]
+
+    def learn(self, prev_state, curr_state, action, reward):
+        old_value = self.Q[(action, prev_state)]
+        self.estimated_best_next_value, self.next_action = self.best_next_action(self.state)
+        learned_value = reward + (self.DISCOUNT_FACTOR * self.estimated_best_next_value)
+        self.Q[(action, prev_state)] = old_value + self.LEARNING_RATE * (learned_value - old_value)
 
 
 def run():
@@ -81,3 +131,15 @@ def run():
 
 if __name__ == '__main__':
     run()
+
+
+# if inputs['light'] == "red":
+#     if inputs['right'] == 'straight':
+#         self.state = self.RED_CANT_RIGHT
+#     else:
+#         self.state = self.RED_CAN_RIGHT
+# else:
+#     if inputs['oncoming'] in ['right', 'straight']:
+#         self.state = self.GREEN_CANT_LEFT
+#     else:
+#         self.state = self.GREEN_CAN_LEFT
