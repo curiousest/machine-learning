@@ -14,15 +14,15 @@ class LearningAgent(Agent):
     # every possible state (list of tuples)
     states = [','.join(i) for i in itertools.product(
         next_waypoint_states,
-        ['oncomingblockingleft', 'True', 'False'],
+        ['oncomingblocking', 'True', 'False'],
         ['True', 'False'],
         ['True', 'False'],
         ['green', 'red']
     )]
 
-    Q = {i: 12 for i in itertools.product(ACTIONS, states)}
+    Q = {i: 5 for i in itertools.product(ACTIONS, states)}
     LEARNING_RATE = 0.2
-    DISCOUNT_FACTOR = 0.5
+    DISCOUNT_FACTOR = 0.25
 
     def __init__(self, env):
         super(LearningAgent, self).__init__(env)  # sets self.env = env, state = None, next_waypoint = None, and a default color
@@ -66,16 +66,21 @@ class LearningAgent(Agent):
         else:
             return maximums
 
+    def get_next_waypoint(self):
+        next_waypoint = getattr(self, 'next_waypoint', None)
+        if next_waypoint:
+            return next_waypoint
+        return self.planner.next_waypoint()
+
     def get_current_state(self):
         # Gather inputs
-        next_waypoint = self.planner.next_waypoint()  # from route planner, also displayed by simulator
         inputs = self.env.sense(self)
-        deadline = self.env.get_deadline(self)
+        self.next_waypoint = self.planner.next_waypoint()  # from route planner, also displayed by simulator
 
         oncoming_blocking_left = inputs['oncoming'] in ['right', 'forward']
         if oncoming_blocking_left:
-            oncoming = "oncomingblockingleft"
-        elif inputs['oncoming']:
+            oncoming = "oncomingblocking"
+        elif inputs['oncoming'] is None:
             oncoming = "True"
         else:
             oncoming = "False"
@@ -84,7 +89,7 @@ class LearningAgent(Agent):
         right = str(inputs['right'] is None)
 
         # 3 x 3 x 2 x 2 x 2 possibilities = 64 possible states
-        state_inputs = [next_waypoint, oncoming, left, right, inputs['light']]
+        state_inputs = [self.next_waypoint, oncoming, left, right, inputs['light']]
         return ','.join(state_inputs)
 
     def update(self, t):
@@ -101,7 +106,6 @@ class LearningAgent(Agent):
         self.learn(prev_state, self.state, action, reward)
 
         # Debug prints
-        inputs = self.env.sense(self)
         deadline = self.env.get_deadline(self)
         print "LearningAgent.update(): deadline = {}, state = {}, action = {}, reward = {}, est = {}".format(deadline, prev_state, action, reward, self.estimated_best_next_value)  # [debug]
 
@@ -110,6 +114,11 @@ class LearningAgent(Agent):
         self.estimated_best_next_value, self.next_action = self.best_next_action(self.state)
         learned_value = reward + (self.DISCOUNT_FACTOR * self.estimated_best_next_value)
         self.Q[(action, prev_state)] = old_value + self.LEARNING_RATE * (learned_value - old_value)
+        diff = self.Q[(action, prev_state)] - old_value
+        print "Change: {}".format(str(diff))
+        # if old_value < 1.5 and prev_state == 'forward,True,True,True,green' and action =="forward" and diff < 0:
+        #     import ipdb; ipdb.set_trace()
+        #     pass
 
 
 def run():
@@ -122,7 +131,7 @@ def run():
     # NOTE: You can set enforce_deadline=False while debugging to allow longer trials
 
     # Now simulate it
-    sim = Simulator(e, update_delay=0.5, display=True)  # create simulator (uses pygame when display=True, if available)
+    sim = Simulator(e, update_delay=0, display=False)  # create simulator (uses pygame when display=True, if available)
     # NOTE: To speed up simulation, reduce update_delay and/or set display=False
 
     sim.run(n_trials=100)  # run for a specified number of trials
