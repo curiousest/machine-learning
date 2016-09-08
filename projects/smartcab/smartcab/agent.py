@@ -21,7 +21,7 @@ class LearningAgent(Agent):
     )]
 
     Q = {i: 5 for i in itertools.product(ACTIONS, states)}
-    LEARNING_RATE = 0.2
+    LEARNING_RATE = 0.1
     DISCOUNT_FACTOR = 0.25
 
     def __init__(self, env):
@@ -39,22 +39,11 @@ class LearningAgent(Agent):
         Returns the next action and expected value of that action for the
         action with the largest expected reward.
 
-        To estimate future states, we have to consider that taking some action
-        will put us in one of 4 random states. Average the 3 random states
-        for each action and pick the max average.
-
         :return: (estimated_value, action) ex: (2.5, 'left')
         '''
 
-        for remove_waypoint in self.next_waypoint_states:
-            state = state.replace(remove_waypoint, '')
-
-        possible_states = [i + state for i in self.next_waypoint_states]
         maximums = max(
-            [(sum(
-                [self.Q[(a, s)] for s in possible_states]
-            ) / len(self.next_waypoint_states), a)
-             for a in ACTIONS],
+            [(self.Q[(a, state)], a) for a in ACTIONS],
             # each item in the comprehension is a tuple - value, action
             key=lambda a: a[0]
         )
@@ -74,8 +63,8 @@ class LearningAgent(Agent):
 
     def get_current_state(self):
         # Gather inputs
-        inputs = self.env.sense(self)
         self.next_waypoint = self.planner.next_waypoint()  # from route planner, also displayed by simulator
+        inputs = self.env.sense(self)
 
         oncoming_blocking_left = inputs['oncoming'] in ['right', 'forward']
         if oncoming_blocking_left:
@@ -93,7 +82,7 @@ class LearningAgent(Agent):
         return ','.join(state_inputs)
 
     def update(self, t):
-
+        self.state = self.get_current_state()
         # select best next action, done during learn step
         action = self.next_action
 
@@ -101,9 +90,11 @@ class LearningAgent(Agent):
         reward = self.env.act(self, action)
 
         prev_state = self.state
-        self.state = self.get_current_state()
-
-        self.learn(prev_state, self.state, action, reward)
+        next_state = self.get_current_state()
+        self.estimated_best_next_value, self.next_action = self.best_next_action(next_state)
+        self.learn(
+            prev_state, next_state, action, reward
+        )
 
         # Debug prints
         deadline = self.env.get_deadline(self)
@@ -111,14 +102,8 @@ class LearningAgent(Agent):
 
     def learn(self, prev_state, curr_state, action, reward):
         old_value = self.Q[(action, prev_state)]
-        self.estimated_best_next_value, self.next_action = self.best_next_action(self.state)
         learned_value = reward + (self.DISCOUNT_FACTOR * self.estimated_best_next_value)
         self.Q[(action, prev_state)] = old_value + self.LEARNING_RATE * (learned_value - old_value)
-        diff = self.Q[(action, prev_state)] - old_value
-        print "Change: {}".format(str(diff))
-        # if old_value < 1.5 and prev_state == 'forward,True,True,True,green' and action =="forward" and diff < 0:
-        #     import ipdb; ipdb.set_trace()
-        #     pass
 
 
 def run():
