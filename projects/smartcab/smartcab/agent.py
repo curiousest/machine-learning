@@ -4,6 +4,7 @@ from environment import Agent, Environment
 from planner import RoutePlanner
 from simulator import Simulator
 
+
 ACTIONS = ['left', 'right', 'forward', None]
 
 class LearningAgent(Agent):
@@ -21,18 +22,23 @@ class LearningAgent(Agent):
     )]
 
     Q = {i: 5 for i in itertools.product(ACTIONS, states)}
-    LEARNING_RATE = 0.1
-    DISCOUNT_FACTOR = 0.25
 
-    def __init__(self, env):
+    def __init__(self, env, learning_rate, discount_factor):
         super(LearningAgent, self).__init__(env)  # sets self.env = env, state = None, next_waypoint = None, and a default color
         self.color = 'red'  # override color
         self.planner = RoutePlanner(self.env, self)  # simple route planner to get next_waypoint
+        self.LEARNING_RATE = learning_rate
+        self.DISCOUNT_FACTOR = discount_factor
+
+        self.success_count = 0
+        self.success_time = 0
+        self.original_deadline = None
 
     def reset(self, destination=None):
         self.planner.route_to(destination)
         self.state = self.get_current_state()
         self.estimated_best_next_value, self.next_action = self.best_next_action(self.state)
+        self.original_deadline = None
 
     def best_next_action(self, state):
         '''
@@ -85,20 +91,26 @@ class LearningAgent(Agent):
         self.state = self.get_current_state()
         # select best next action, done during learn step
         action = self.next_action
+        deadline = self.env.get_deadline(self)
+        if not self.original_deadline:
+            self.original_deadline = deadline
 
         # Execute action and get reward
         reward = self.env.act(self, action)
+        if reward > 2:
+            self.success_count += 1
+            self.success_time += self.original_deadline - deadline
 
         prev_state = self.state
         next_state = self.get_current_state()
+        last_est = self.estimated_best_next_value
         self.estimated_best_next_value, self.next_action = self.best_next_action(next_state)
         self.learn(
             prev_state, next_state, action, reward
         )
 
         # Debug prints
-        deadline = self.env.get_deadline(self)
-        print "LearningAgent.update(): deadline = {}, state = {}, action = {}, reward = {}, est = {}".format(deadline, prev_state, action, reward, self.estimated_best_next_value)  # [debug]
+        #print "LearningAgent.update(): deadline = {}, state = {}, action = {}, reward = {}, est. reward = {}".format(deadline, prev_state, action, reward, last_est)  # [debug]
 
     def learn(self, prev_state, curr_state, action, reward):
         old_value = self.Q[(action, prev_state)]
@@ -109,18 +121,42 @@ class LearningAgent(Agent):
 def run():
     """Run the agent for a finite number of trials."""
 
-    # Set up environment and agent
-    e = Environment()  # create environment (also adds some dummy traffic)
-    a = e.create_agent(LearningAgent)  # create agent
-    e.set_primary_agent(a, enforce_deadline=True)  # specify agent to track
-    # NOTE: You can set enforce_deadline=False while debugging to allow longer trials
+    trials = []
 
-    # Now simulate it
-    sim = Simulator(e, update_delay=0, display=False)  # create simulator (uses pygame when display=True, if available)
-    # NOTE: To speed up simulation, reduce update_delay and/or set display=False
+    for i in range(0, 110, 10):
+        # values 0.0, 0.1, 0.2, ... , 1.0
+        learning_rate = i / 100.0
+        for j in range(0, 110, 10):
+            discount_factor = j / 100.0
+            # Set up environment and agent
+            e = Environment()  # create environment (also adds some dummy traffic)
+            a = e.create_agent(LearningAgent, learning_rate, discount_factor)  # create agent
+            e.set_primary_agent(a, enforce_deadline=True)  # specify agent to track
+            # NOTE: You can set enforce_deadline=False while debugging to allow longer trials
 
-    sim.run(n_trials=100)  # run for a specified number of trials
-    # NOTE: To quit midway, press Esc or close pygame window, or hit Ctrl+C on the command-line
+            # Now simulate it
+            sim = Simulator(e, update_delay=0, display=False)  # create simulator (uses pygame when display=True, if available)
+            # NOTE: To speed up simulation, reduce update_delay and/or set display=False
+
+            sim.run(n_trials=100)  # run for a specified number of trials
+            # NOTE: To quit midway, press Esc or close pygame window, or hit Ctrl+C on the command-line
+
+            trials.append((
+                learning_rate,
+                discount_factor,
+                a.success_count,
+                a.success_time / max(a.success_count, 1)
+            ))
+
+    print "\n=== RESULTS ===\n"
+
+    for trial in trials:
+        print "Learning Rate: {}, Discount Factor: {}, # successes: {}/100, average success time: {}".format(
+            *[t for t in trial]
+        )
+
+    print trials
+
 
 
 if __name__ == '__main__':
