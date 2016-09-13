@@ -203,8 +203,9 @@ right = str(inputs['right'] is None)
 states = [self.next_waypoint, oncoming, left, right, inputs['light']]
 
 self.state = ','.join(states)</code></pre>
-<p>I wanted to leave room for the learner to learn the rules, while giving so many states that it would never have a chance to learn them all. I reduced the possible state combinations coming from left, right and oncoming to what is relevant.</p>
-<p>I would have enjoyed trying the states "follow the rules" vs. "don't follow the rules" x (time_to_destination - time_remaining) because it would be less obvious what the optimal strategy is. Unfortunately, time_to_destination is not part of the input set.</p>
+<p>I wanted to leave room for the learner to learn the rules, while giving so many states that it would never have a chance to learn them all. I reduced the possible state combinations coming from left, right and oncoming to what is relevant. I had to include the inputs['light'], inputs['oncoming'], inputs['left'], inputs['right'] for provide enough information to always get the same reward when performing an action on a state. If I reduced further for these, either the learner could get different rewards for the same state/action pair, or I would be implicitly encoding the rules into the learner, preventing it from learning the rule.</p>
+<p>I didn't include time to destination because since we're not allowed to break the rules of the road and the most efficient route is to always follow the planner, the time to destination will not usefully change actions. It would only multiply states unecessarily.</p>
+<p>If we were allowed to break the rules, I would have enjoyed trying the states "follow the rules" vs. "don't follow the rules" x (time_to_destination - time_remaining) in a larger grid because it would be less obvious what the optimal strategy is.</p>
 <h2 id="Question-3">Question 3<a class="anchor-link" href="#Question-3">&#182;</a></h2><blockquote><p>OPTIONAL: How many states in total exist for the smartcab in this environment? Does this number seem reasonable given that the goal of Q-Learning is to learn and make informed decisions about each state? Why or why not?</p>
 </blockquote>
 <p>If we don't know how the other agents work or they are random, the number of states is exponentially related to the deadline for the smartcab in this environment. Imagine an input was: <code>{'light': 'red', 'left': 'forward', ...}</code>. The next turns state would be "Last turn forward car on left and...", the turn after would be "Two turns ago forward car on left and...". This would have to be combined with every encounter with a car.</p>
@@ -3423,6 +3424,17 @@ WPC9WBJGj2BJuB0Bfscyu06VS15FUcYDjwEThBB3n3g2F4qi/A34rxCitY33nsSS6e+eu+SfL4S4
 <h2 id="Question-6">Question 6<a class="anchor-link" href="#Question-6">&#182;</a></h2><blockquote><p>QUESTION: Does your agent get close to finding an optimal policy, i.e. reach the destination in the minimum possible time, and not incur any penalties? How would you describe an optimal policy for this problem?</p>
 </blockquote>
 <p>I think it gets close, because the best average trip times look to be about 10s, and the learner gets such a high success rate that it often learns close to the optimal policy in its first trip. I'm guessing this is because rewards from following the trip planner is a really basic way to give immediate feedback for the end payoff. If they weren't so perfectly linked, the discount rate may be higher in the optimal policy.</p>
+<p>It does, however, still incur penalties, even at the end of the trials. In the last 10 runs, the learner gets 8 negative rewards:</p>
+
+<pre><code>Errored in state: left,True,True,False,red action: left
+Errored in state: left,True,True,True,red action: right
+Errored in state: forward,True,True,True,red action: forward
+Errored in state: forward,True,True,True,red action: left
+Errored in state: forward,True,True,True,red action: forward
+Errored in state: left,True,True,False,green action: right
+Errored in state: right,True,False,True,green action: forward
+Errored in state: forward,oncomingblocking,True,True,red action: forward</code></pre>
+<p>These errors are all rarely-encountered states - each boolean represents a car at some position in the intersection, and all of these states have at least two other cars at the intersection (which is rare).</p>
 <p>The optimal policy is go in the direct the route planner recommends, but stay still when going in that direction will incur penalties - straight or left at a red, right at red when a car is at left, left at green when a car is at forward.</p>
 
 </div>

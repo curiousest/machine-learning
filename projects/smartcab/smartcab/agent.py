@@ -33,12 +33,17 @@ class LearningAgent(Agent):
         self.success_count = 0
         self.success_time = 0
         self.original_deadline = None
+        self.errors_count = 0
+        self.total_errors_count = 0
 
     def reset(self, destination=None):
         self.planner.route_to(destination)
         self.state = self.get_current_state()
         self.estimated_best_next_value, self.next_action = self.best_next_action(self.state)
         self.original_deadline = None
+        self.total_errors_count += self.errors_count
+        # print "Errors: {}, Total: {}".format(self.errors_count, self.total_errors_count)
+        self.errors_count = 0
 
     def best_next_action(self, state):
         '''
@@ -100,6 +105,9 @@ class LearningAgent(Agent):
         if reward > 2:
             self.success_count += 1
             self.success_time += self.original_deadline - deadline
+        elif reward < 0:
+            self.errors_count += 1
+            #print "Errored in state: {} action: {}".format(self.state, action)
 
         prev_state = self.state
         next_state = self.get_current_state()
@@ -148,6 +156,7 @@ def run():
                 a.success_time / max(a.success_count, 1)
             ))
 
+
     print "\n=== RESULTS ===\n"
 
     for trial in trials:
@@ -158,18 +167,6 @@ def run():
     print trials
 
 
-
 if __name__ == '__main__':
     run()
 
-
-# if inputs['light'] == "red":
-#     if inputs['right'] == 'straight':
-#         self.state = self.RED_CANT_RIGHT
-#     else:
-#         self.state = self.RED_CAN_RIGHT
-# else:
-#     if inputs['oncoming'] in ['right', 'straight']:
-#         self.state = self.GREEN_CANT_LEFT
-#     else:
-#         self.state = self.GREEN_CAN_LEFT
